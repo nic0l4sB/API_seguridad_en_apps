@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HealthSecure — Historias Clínicas</title>
+  <style>
+    /* -------------------------------------------------------
+       Variables y reset básico
+       ------------------------------------------------------- */
+    :root {
+      --azul:    #1a6fc4;
+      --azul-claro: #e8f1fb;
+      --verde:   #1a8a4a;
+      --rojo:    #c0392b;
+      --gris:    #f4f6f8;
+      --borde:   #d0d7e2;
+      --texto:   #1e2532;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: var(--gris); color: var(--texto); }
+
+    header {
+      background: var(--azul);
+      color: white;
+      padding: 18px 32px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    header h1 { font-size: 1.3rem; font-weight: 600; }
+    header span { opacity: 0.75; font-size: 0.9rem; }
+
+    /* Contenedor principal en dos columnas */
+    main {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      padding: 24px 32px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    /* Tarjeta reutilizable */
+    .card {
+      background: white;
+      border: 1px solid var(--borde);
+      border-radius: 10px;
+      padding: 20px;
+    }
+    .card h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--azul);
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--borde);
+    }
+
+    /* Formularios */
+    form label {
+      display: block;
+      font-size: 0.82rem;
+      font-weight: 500;
+      margin-bottom: 3px;
+      margin-top: 10px;
+      color: #445;
+    }
+    form input, form select, form textarea {
+      width: 100%;
+      padding: 7px 10px;
+      border: 1px solid var(--borde);
+      border-radius: 6px;
+      font-size: 0.88rem;
+    }
+    form textarea { resize: vertical; min-height: 60px; }
+    button {
+      margin-top: 14px;
+      padding: 8px 18px;
+      background: var(--azul);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.88rem;
+      cursor: pointer;
+    }
+    button:hover { opacity: 0.88; }
+    button.danger { background: var(--rojo); }
+
+    /* Tabla de resultados */
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    th { background: var(--azul-claro); color: var(--azul); text-align: left; padding: 7px 10px; }
+    td { padding: 6px 10px; border-bottom: 1px solid var(--borde); }
+    tr:hover td { background: #f0f5fc; }
+
+    /* Mensajes de estado */
+    .msg { margin-top: 10px; padding: 8px 12px; border-radius: 6px; font-size: 0.85rem; }
+    .msg.ok  { background: #e6f4ec; color: var(--verde); }
+    .msg.err { background: #fdecea; color: var(--rojo);  }
+
+    /* Ocupa todo el ancho en pantallas pequeñas */
+    @media(max-width: 700px) { main { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>🏥 HealthSecure</h1>
+    <span>Sistema de Gestión de Historias Clínicas</span>
+  </div>
+</header>
+
+<main>
+
+  <!-- =====================================================
+       SECCIÓN IZQUIERDA: Gestión de Pacientes
+       ===================================================== -->
+  <div>
+
+    <!-- Formulario: registrar paciente -->
+    <div class="card">
+      <h2>Registrar paciente</h2>
+      <form id="formPaciente">
+        <label>Nombre completo *</label>
+        <input type="text" id="pNombre" required placeholder="Ej: María López">
+
+        <label>Fecha de nacimiento *</label>
+        <input type="date" id="pFecha" required>
+
+        <label>Género</label>
+        <select id="pGenero">
+          <option value="M">Masculino</option>
+          <option value="F">Femenino</option>
+          <option value="Otro">Otro</option>
+        </select>
+
+        <label>Teléfono</label>
+        <input type="tel" id="pTelefono" placeholder="Ej: 3001234567">
+
+        <label>Correo electrónico</label>
+        <input type="email" id="pEmail" placeholder="paciente@correo.com">
+
+        <button type="submit">Registrar paciente</button>
+      </form>
+      <div id="msgPaciente"></div>
+    </div>
+
+    <!-- Tabla de pacientes registrados -->
+    <div class="card" style="margin-top:20px">
+      <h2>Pacientes registrados <button onclick="cargarPacientes()" style="float:right;margin:0;padding:5px 12px;font-size:0.8rem">↻ Actualizar</button></h2>
+      <div id="tablaPacientes">
+        <p style="color:#888;font-size:0.85rem">Cargando...</p>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- =====================================================
+       SECCIÓN DERECHA: Historias Clínicas
+       ===================================================== -->
+  <div>
+
+    <!-- Formulario: nueva historia clínica -->
+    <div class="card">
+      <h2>Nueva historia clínica</h2>
+      <form id="formHistoria">
+        <label>Paciente (ID) *</label>
+        <!-- El usuario copia el ID desde la tabla de la izquierda -->
+        <input type="number" id="hPacienteId" required placeholder="ID del paciente">
+
+        <label>Médico *</label>
+        <!-- Se llena dinámicamente con GET /medicos -->
+        <select id="hMedicoId"></select>
+
+        <label>Motivo de consulta *</label>
+        <input type="text" id="hMotivo" required placeholder="Ej: Dolor torácico">
+
+        <label>Diagnóstico</label>
+        <textarea id="hDiagnostico" placeholder="Diagnóstico médico..."></textarea>
+
+        <label>Tratamiento</label>
+        <textarea id="hTratamiento" placeholder="Medicamentos, indicaciones..."></textarea>
+
+        <button type="submit">Guardar historia</button>
+      </form>
+      <div id="msgHistoria"></div>
+    </div>
+
+    <!-- Consultar historias por paciente -->
+    <div class="card" style="margin-top:20px">
+      <h2>Consultar historias de un paciente</h2>
+      <div style="display:flex;gap:8px;align-items:flex-end">
+        <div style="flex:1">
+          <label style="display:block;font-size:0.82rem;margin-bottom:3px">ID del paciente</label>
+          <input type="number" id="buscarId" placeholder="Ej: 1" style="width:100%;padding:7px 10px;border:1px solid var(--borde);border-radius:6px">
+        </div>
+        <button onclick="consultarHistorias()" style="margin:0">Buscar</button>
+      </div>
+      <div id="tablaHistorias" style="margin-top:14px"></div>
+    </div>
+
+  </div>
+
+</main>
+
+<script>
+  // -------------------------------------------------------
+  // URL base de la API Flask
+  // Si el backend corre en otro puerto, cambiar aquí
+  // -------------------------------------------------------
+  const API = "http://localhost:5000";
+
+  // -------------------------------------------------------
+  // Utilidad: muestra un mensaje de estado en un div
+  // -------------------------------------------------------
+  function mostrarMsg(divId, texto, esError) {
+    const div = document.getElementById(divId);
+    div.className = "msg " + (esError ? "err" : "ok");
+    div.textContent = texto;
+    // El mensaje desaparece automáticamente a los 4 segundos
+    setTimeout(() => { div.textContent = ""; div.className = ""; }, 4000);
+  }
+
+  // -------------------------------------------------------
+  // Cargar lista de médicos en el <select>
+  // Se ejecuta al cargar la página
+  // -------------------------------------------------------
+  async function cargarMedicos() {
+    const res  = await fetch(`${API}/medicos`);       // GET /medicos
+    const lista = await res.json();
+    const sel  = document.getElementById("hMedicoId");
+    sel.innerHTML = "";  // limpia opciones previas
+    lista.forEach(m => {
+      const opt = document.createElement("option");
+      opt.value       = m.id;
+      opt.textContent = `${m.nombre} — ${m.especialidad}`;
+      sel.appendChild(opt);
+    });
+  }
+
+  // -------------------------------------------------------
+  // Cargar y renderizar tabla de pacientes
+  // -------------------------------------------------------
+  async function cargarPacientes() {
+    const res  = await fetch(`${API}/pacientes`);     // GET /pacientes
+    const lista = await res.json();
+    const cont = document.getElementById("tablaPacientes");
+
+    if (lista.length === 0) {
+      cont.innerHTML = "<p style='color:#888;font-size:0.85rem'>No hay pacientes registrados.</p>";
+      return;
+    }
+
+    // Construir tabla HTML dinámicamente
+    let html = `<table>
+      <thead><tr>
+        <th>ID</th><th>Nombre</th><th>Nacimiento</th><th>Género</th><th>Teléfono</th><th></th>
+      </tr></thead><tbody>`;
+
+    lista.forEach(p => {
+      html += `<tr>
+        <td>${p.id}</td>
+        <td>${p.nombre}</td>
+        <td>${p.fecha_nacimiento}</td>
+        <td>${p.genero}</td>
+        <td>${p.telefono || "—"}</td>
+        <td>
+          <!-- Botón eliminar: llama a DELETE /pacientes/<id> -->
+          <button class="danger" style="padding:3px 10px;margin:0;font-size:0.78rem"
+            onclick="eliminarPaciente(${p.id})">Eliminar</button>
+        </td>
+      </tr>`;
+    });
+
+    html += "</tbody></table>";
+    cont.innerHTML = html;
+  }
+
+  // -------------------------------------------------------
+  // Eliminar un paciente por ID
+  // -------------------------------------------------------
+  async function eliminarPaciente(id) {
+    if (!confirm(`¿Eliminar al paciente ID ${id}? Sus historias también se eliminarán.`)) return;
+
+    const res = await fetch(`${API}/pacientes/${id}`, { method: "DELETE" });
+    const data = await res.json();
+
+    if (res.ok) {
+      mostrarMsg("msgPaciente", data.mensaje, false);
+      cargarPacientes();  // refresca la tabla
+    } else {
+      mostrarMsg("msgPaciente", data.error, true);
+    }
+  }
+
+  // -------------------------------------------------------
+  // Enviar formulario: crear nuevo paciente
+  // -------------------------------------------------------
+  document.getElementById("formPaciente").addEventListener("submit", async (e) => {
+    e.preventDefault();  // evita que el formulario recargue la página
+
+    const payload = {
+      nombre:           document.getElementById("pNombre").value,
+      fecha_nacimiento: document.getElementById("pFecha").value,
+      genero:           document.getElementById("pGenero").value,
+      telefono:         document.getElementById("pTelefono").value,
+      email:            document.getElementById("pEmail").value
+    };
+
+    const res  = await fetch(`${API}/pacientes`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },  // indica que el cuerpo es JSON
+      body:    JSON.stringify(payload)                   // convierte el objeto JS a string JSON
+    });
+    const data = await res.json();
+
+    if (res.ok) {
+      mostrarMsg("msgPaciente", `Paciente registrado con ID ${data.id}`, false);
+      e.target.reset();   // limpia el formulario
+      cargarPacientes();
+    } else {
+      mostrarMsg("msgPaciente", data.error, true);
+    }
+  });
+
+  // -------------------------------------------------------
+  // Enviar formulario: crear nueva historia clínica
+  // -------------------------------------------------------
+  document.getElementById("formHistoria").addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const payload = {
+      paciente_id:  parseInt(document.getElementById("hPacienteId").value),
+      medico_id:    parseInt(document.getElementById("hMedicoId").value),
+      motivo:       document.getElementById("hMotivo").value,
+      diagnostico:  document.getElementById("hDiagnostico").value,
+      tratamiento:  document.getElementById("hTratamiento").value
+    };
+
+    const res  = await fetch(`${API}/historias`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify(payload)
+    });
+    const data = await res.json();
+
+    if (res.ok) {
+      mostrarMsg("msgHistoria", `Historia creada con ID ${data.id}`, false);
+      e.target.reset();
+    } else {
+      mostrarMsg("msgHistoria", data.error, true);
+    }
+  });
+
+  // -------------------------------------------------------
+  // Consultar historias clínicas de un paciente
+  // -------------------------------------------------------
+  async function consultarHistorias() {
+    const id   = document.getElementById("buscarId").value;
+    if (!id) return;
+
+    const res  = await fetch(`${API}/historias/${id}`);   // GET /historias/<id>
+    const lista = await res.json();
+    const cont = document.getElementById("tablaHistorias");
+
+    if (lista.length === 0) {
+      cont.innerHTML = "<p style='color:#888;font-size:0.85rem'>Sin historias para este paciente.</p>";
+      return;
+    }
+
+    let html = `<table>
+      <thead><tr>
+        <th>Fecha</th><th>Médico</th><th>Motivo</th><th>Diagnóstico</th>
+      </tr></thead><tbody>`;
+
+    lista.forEach(h => {
+      html += `<tr>
+        <td>${h.fecha_consulta}</td>
+        <td>${h.medico}</td>
+        <td>${h.motivo}</td>
+        <td>${h.diagnostico || "—"}</td>
+      </tr>`;
+    });
+
+    html += "</tbody></table>";
+    cont.innerHTML = html;
+  }
+
+  // -------------------------------------------------------
+  // Al cargar la página: inicializar datos del formulario
+  // -------------------------------------------------------
+  window.addEventListener("DOMContentLoaded", () => {
+    cargarMedicos();    // puebla el <select> de médicos
+    cargarPacientes();  // carga la tabla inicial de pacientes
+  });
+</script>
+
+</body>
+</html>
